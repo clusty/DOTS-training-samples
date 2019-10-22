@@ -10,7 +10,7 @@ public struct Orbiter {
 
 	public Orbiter(float3 pos) {
 		position = pos;
-		velocity=Vector3.zero;
+		velocity=float3.zero;
 		color = new float4(0,0,0,1);
 	}
 }
