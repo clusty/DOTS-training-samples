@@ -90,7 +90,7 @@ public class ParticleManager : MonoBehaviour {
 
 			var dist = DistanceField.GetDistance(model, time,orbiter.position.x,orbiter.position.y,orbiter.position.z,out var normal);
 			normal /= math.length(normal);
-			orbiter.velocity -=  Mathf.Clamp(dist,-1f,1f) * attraction * normal;
+			orbiter.velocity -=  math.clamp(dist,-1f,1f) * attraction * normal;
 			orbiter.velocity += insideSphere*jitter;
 			orbiter.velocity *= .99f;
 			orbiter.position += orbiter.velocity;
@@ -135,8 +135,8 @@ public class ParticleManager : MonoBehaviour {
 		public void Execute(int index)
 		{
 			var orbiter = orbiters[index];
-			var scale = new Vector3(.1f,.01f,Mathf.Max(.1f,math.length(orbiter.velocity) * speedStretch));
-			matrices[index] = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
+			var scale = new float3(.1f,.01f,math.max(.1f,math.length(orbiter.velocity) * speedStretch));
+			matrices[index] = float4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
 			colors[index] = orbiter.color;
 		}
 	}
@@ -150,14 +150,12 @@ public class ParticleManager : MonoBehaviour {
 				matrices = matrices,
 				colors = colors,
 				speedStretch = speedStretch
-				
 			};
 
 			var handle = prepareData.Schedule(orbiters.Length, 1);
 			handle.Complete();
 		}
 		
-		//Unity.Mathematics.math.RigidTransform().
 		unsafe
 		{
 			using (renderMarker.Auto())

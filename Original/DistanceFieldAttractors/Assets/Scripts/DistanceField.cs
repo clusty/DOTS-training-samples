@@ -17,12 +17,12 @@ public class DistanceField:MonoBehaviour {
 
 	// Smooth-Minimum, from Media Molecule's "Dreams"
 	static float SmoothMin(float a, float b, float radius) {
-		float e = Mathf.Max(radius - Mathf.Abs(a - b),0);
-		return Mathf.Min(a,b) - e * e * 0.25f / radius;
+		float e = math.max(radius - Mathf.Abs(a - b),0);
+		return math.min(a,b) - e * e * 0.25f / radius;
 	}
 
 	static float Sphere(float x, float y, float z,float radius) {
-		return Mathf.Sqrt(x * x + y * y + z * z) - radius;
+		return math.sqrt(x * x + y * y + z * z) - radius;
 	}
 
 	// what's the shortest distance from a given point to the isosurface?
@@ -68,16 +68,16 @@ public class DistanceField:MonoBehaviour {
 			var planeNormal = new float3(0f,1f,0f);
 
 			float t = math.sin(time * 8f) * .4f + .4f;
-			distance = Mathf.Lerp(sphereDist,planeDist,t);
+			distance = math.lerp(sphereDist,planeDist,t);
 			normal = math.lerp(sphereNormal,planeNormal,t);
 		} else if (model==DistanceFieldModel.SphereField) {
 			float spacing = 5f + math.sin(time*5f) * 2f;
 			x += spacing * .5f;
 			y += spacing * .5f;
 			z += spacing * .5f;
-			x -= Mathf.Floor(x / spacing) * spacing;
-			y -= Mathf.Floor(y / spacing) * spacing;
-			z -= Mathf.Floor(z / spacing) * spacing;
+			x -= math.floor(x / spacing) * spacing;
+			y -= math.floor(y / spacing) * spacing;
+			z -= math.floor(z / spacing) * spacing;
 			x -= spacing * .5f;
 			y -= spacing * .5f;
 			z -= spacing * .5f;
