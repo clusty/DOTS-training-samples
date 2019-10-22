@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Profiling;
 using UnityEngine;
@@ -11,6 +12,7 @@ using Random = UnityEngine.Random;
 
 public class ParticleManager : MonoBehaviour {
 	
+	ProfilerMarker updateStateMarker = new ProfilerMarker("updateParticleStateMarker");
 	ProfilerMarker dataMarker = new ProfilerMarker("DataPrepare");
 	ProfilerMarker renderMarker = new ProfilerMarker("Rendering");
 
@@ -28,42 +30,38 @@ public class ParticleManager : MonoBehaviour {
 	public float colorStiffness;
 	NativeArray<Orbiter> orbiters;
 
-	Matrix4x4[][] matrices;
-	Vector4[][] colors;
-	MaterialPropertyBlock[] matProps;
+	private NativeArray<Matrix4x4> matrices;
+	private NativeArray<Vector4> colors;
+	
 	int finalBatchCount;
 
 	const int instancesPerBatch = 1023;
+	const int particleCount = 40000;
 
+	private Matrix4x4[] matricesM = new Matrix4x4[instancesPerBatch];
+	private Vector4[] colorsM = new Vector4[instancesPerBatch];
+	private MaterialPropertyBlock matProps;
+	
 	void OnEnable () {
 		finalBatchCount = 0;
-		orbiters = new NativeArray<Orbiter>(40000,Allocator.Persistent);
-		matrices = new Matrix4x4[orbiters.Length/instancesPerBatch+1][];
-		matrices[0] = new Matrix4x4[instancesPerBatch];
-		colors = new Vector4[matrices.Length][];
-		colors[0] = new Vector4[instancesPerBatch];
+		orbiters = new NativeArray<Orbiter>(particleCount,Allocator.Persistent);
+		matrices = new NativeArray<Matrix4x4>(particleCount,Allocator.Persistent);
+		colors = new NativeArray<Vector4>(particleCount, Allocator.Persistent);
+		matProps = new MaterialPropertyBlock();
 
-		int batch = 0;
-		for (int i=0;i<orbiters.Length;i++) {
-			orbiters[i]=new Orbiter(Random.insideUnitSphere*50f);
-			finalBatchCount++;
-			if (finalBatchCount==instancesPerBatch) {
-				batch++;
-				finalBatchCount = 0;
-				matrices[batch]=new Matrix4x4[instancesPerBatch];
-				colors[batch] = new Vector4[instancesPerBatch];
-			}
+		for (int i = 0; i < orbiters.Length; i++)
+		{
+			orbiters[i] = new Orbiter(Random.insideUnitSphere * 50f);
 		}
-		matProps = new MaterialPropertyBlock[colors.Length];
-		for (int i = 0; i <= batch; i++) {
-			matProps[i] = new MaterialPropertyBlock();
-			matProps[i].SetVectorArray("_Color",new Vector4[instancesPerBatch]);
-		}
+		
+		matProps.SetVectorArray("_Color",new Vector4[instancesPerBatch]);
 	}
 
 	void OnDisable()
 	{
 		orbiters.Dispose();
+		matrices.Dispose();
+		colors.Dispose();
 	}
 	
 	[BurstCompile]
@@ -110,41 +108,81 @@ public class ParticleManager : MonoBehaviour {
 	
 	void FixedUpdate () 
 	{
-		var updateJob  = new OrbiterUpdateJob
+		using (updateStateMarker.Auto())
 		{
-			orbiters = orbiters, attraction = attraction, jitter = jitter, surfaceColor = surfaceColor,
-			exteriorColor = exteriorColor, interiorColor = interiorColor,
-			exteriorColorDist = exteriorColorDist, interiorColorDist = interiorColorDist,
-			colorStiffness = colorStiffness,
-			Dt = Time.deltaTime,
-			model = DistanceField.instance.model,
-			time = DistanceField.timeStatic,
-			frameCount = (uint)Time.frameCount
-		};
+			var updateJob = new OrbiterUpdateJob
+			{
+				orbiters = orbiters, attraction = attraction, jitter = jitter, surfaceColor = surfaceColor,
+				exteriorColor = exteriorColor, interiorColor = interiorColor,
+				exteriorColorDist = exteriorColorDist, interiorColorDist = interiorColorDist,
+				colorStiffness = colorStiffness,
+				Dt = Time.deltaTime,
+				model = DistanceField.instance.model,
+				time = DistanceField.timeStatic,
+				frameCount = (uint) Time.frameCount
+			};
 
-		var handle = updateJob.Schedule(orbiters.Length, 1);
-		handle.Complete();
+			var handle = updateJob.Schedule(orbiters.Length, 1);
+			handle.Complete();
+		}
+	}
+
+	[BurstCompile]
+	struct PrepareRenderData : IJobParallelFor
+	{
+		public NativeArray<Orbiter> orbiters;
+		public NativeArray<Matrix4x4> matrices;
+		public NativeArray<Vector4> colors;
+		public float speedStretch;
+		public void Execute(int index)
+		{
+			var orbiter = orbiters[index];
+			var scale = new Vector3(.1f,.01f,Mathf.Max(.1f,orbiter.velocity.magnitude * speedStretch));
+			matrices[index] = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
+			colors[index] = orbiter.color;
+		}
 	}
 
 	private void Update() {
 		using (dataMarker.Auto())
-		for (int i=0;i<orbiters.Length;i++) {
-			Orbiter orbiter = orbiters[i];
-			Vector3 scale = new Vector3(.1f,.01f,Mathf.Max(.1f,orbiter.velocity.magnitude * speedStretch));
-			Matrix4x4 matrix = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
-			matrices[i / instancesPerBatch][i % instancesPerBatch] = matrix;
-			colors[i / instancesPerBatch][i % instancesPerBatch] = orbiter.color;
-			//Unity.Mathematics.math.RigidTransform().
-		}
+		{
+			var prepareData  = new PrepareRenderData
+			{
+				orbiters = orbiters,
+				matrices = matrices,
+				colors = colors,
+				speedStretch = speedStretch
+				
+			};
 
-		using (renderMarker.Auto())
-		for (int i=0;i<matrices.Length;i++) {
-			int count = instancesPerBatch;
-			if (i==matrices.Length-1) {
-				count = finalBatchCount;
+			var handle = prepareData.Schedule(orbiters.Length, 1);
+			handle.Complete();
+		}
+		
+		//Unity.Mathematics.math.RigidTransform().
+		unsafe
+		{
+			using (renderMarker.Auto())
+			{
+				for (var i = 0; i < particleCount; i += instancesPerBatch)
+				{
+					var count = Math.Min(instancesPerBatch, particleCount - i);
+					var src = matrices.GetUnsafeReadOnlyPtr();
+					fixed (void* dst = matricesM)
+					{
+						UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Matrix4x4>());
+					}
+					
+					src = colors.GetUnsafeReadOnlyPtr();
+					fixed (void* dst = colorsM)
+					{
+						UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Color>());
+					}
+					
+					matProps.SetVectorArray(ColorID, colorsM);
+					Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM, count, matProps);
+				}
 			}
-			matProps[i].SetVectorArray(ColorID,colors[i]);
-			Graphics.DrawMeshInstanced(particleMesh,0,particleMaterial,matrices[i],count,matProps[i]);
 		}
 	}
 }
