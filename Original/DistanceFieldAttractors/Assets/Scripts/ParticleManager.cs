@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -30,8 +29,8 @@ public class ParticleManager : MonoBehaviour {
 	public float colorStiffness;
 	NativeArray<Orbiter> orbiters;
 
-	private NativeArray<Matrix4x4> matrices;
-	private NativeArray<Vector4> colors;
+	private NativeArray<float4x4> matrices;
+	private NativeArray<float4> colors;
 	
 	int finalBatchCount;
 
@@ -45,11 +44,11 @@ public class ParticleManager : MonoBehaviour {
 	void OnEnable () {
 		finalBatchCount = 0;
 		orbiters = new NativeArray<Orbiter>(particleCount,Allocator.Persistent);
-		matrices = new NativeArray<Matrix4x4>(particleCount,Allocator.Persistent);
-		colors = new NativeArray<Vector4>(particleCount, Allocator.Persistent);
+		matrices = new NativeArray<float4x4>(particleCount,Allocator.Persistent);
+		colors = new NativeArray<float4>(particleCount, Allocator.Persistent);
 		matProps = new MaterialPropertyBlock();
 
-		for (int i = 0; i < orbiters.Length; i++)
+		for (var i = 0; i < orbiters.Length; i++)
 		{
 			orbiters[i] = new Orbiter(Random.insideUnitSphere * 50f);
 		}
@@ -69,7 +68,7 @@ public class ParticleManager : MonoBehaviour {
 	{
 		public NativeArray<Orbiter> orbiters;
 		public float attraction, jitter;
-		public Color surfaceColor, exteriorColor, interiorColor;
+		public float4 surfaceColor, exteriorColor, interiorColor;
 		public float exteriorColorDist, interiorColorDist, colorStiffness;
 		public float Dt;
 		public float time;
@@ -82,26 +81,23 @@ public class ParticleManager : MonoBehaviour {
 			var r = new Unity.Mathematics.Random();
 			var seed = (frameCount * 2147483647) ^ (index + 1);
 			r.InitState((uint)seed);
-			var f3 = r.NextFloat3();
-			var insideSphere = new Vector3(f3.x, f3.y, f3.z);
-			var n = insideSphere.magnitude;
+			var insideSphere = r.NextFloat3();
+			var n = math.length(insideSphere);
 			if (n > 1)
 			{
 				insideSphere /= n;
 			}
 
 			var dist = DistanceField.GetDistance(model, time,orbiter.position.x,orbiter.position.y,orbiter.position.z,out var normal);
-			orbiter.velocity -= Mathf.Clamp(dist,-1f,1f) * attraction * normal.normalized;
+			normal /= math.length(normal);
+			orbiter.velocity -=  Mathf.Clamp(dist,-1f,1f) * attraction * normal;
 			orbiter.velocity += insideSphere*jitter;
 			orbiter.velocity *= .99f;
 			orbiter.position += orbiter.velocity;
-			Color targetColor;
-			if (dist>0f) {
-				targetColor = Color.Lerp(surfaceColor,exteriorColor,dist/exteriorColorDist);
-			} else {
-				targetColor = Color.Lerp(surfaceColor,interiorColor,-dist / interiorColorDist);
-			}
-			orbiter.color = Color.Lerp(orbiter.color,targetColor,Dt * colorStiffness);
+			var targetColor = dist>0f ? 
+				math.lerp(surfaceColor,exteriorColor,dist/exteriorColorDist) : 
+				math.lerp(surfaceColor,interiorColor,-dist / interiorColorDist);
+			orbiter.color = math.lerp(orbiter.color,targetColor,Dt * colorStiffness);
 			orbiters[index] = orbiter;
 		}
 	}
@@ -112,8 +108,10 @@ public class ParticleManager : MonoBehaviour {
 		{
 			var updateJob = new OrbiterUpdateJob
 			{
-				orbiters = orbiters, attraction = attraction, jitter = jitter, surfaceColor = surfaceColor,
-				exteriorColor = exteriorColor, interiorColor = interiorColor,
+				orbiters = orbiters, attraction = attraction, jitter = jitter, 
+				surfaceColor = new float4(surfaceColor.r,surfaceColor.g,surfaceColor.b, surfaceColor.a),
+				exteriorColor = new float4(exteriorColor.r,exteriorColor.g,exteriorColor.b, exteriorColor.a), 
+				interiorColor = new float4(interiorColor.r,interiorColor.g,interiorColor.b, interiorColor.a),
 				exteriorColorDist = exteriorColorDist, interiorColorDist = interiorColorDist,
 				colorStiffness = colorStiffness,
 				Dt = Time.deltaTime,
@@ -131,13 +129,13 @@ public class ParticleManager : MonoBehaviour {
 	struct PrepareRenderData : IJobParallelFor
 	{
 		public NativeArray<Orbiter> orbiters;
-		public NativeArray<Matrix4x4> matrices;
-		public NativeArray<Vector4> colors;
+		public NativeArray<float4x4> matrices;
+		public NativeArray<float4> colors;
 		public float speedStretch;
 		public void Execute(int index)
 		{
 			var orbiter = orbiters[index];
-			var scale = new Vector3(.1f,.01f,Mathf.Max(.1f,orbiter.velocity.magnitude * speedStretch));
+			var scale = new Vector3(.1f,.01f,Mathf.Max(.1f,math.length(orbiter.velocity) * speedStretch));
 			matrices[index] = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
 			colors[index] = orbiter.color;
 		}
