@@ -134,7 +134,7 @@ public class ParticleManager : MonoBehaviour {
 			Matrix4x4 matrix = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
 			matrices[i / instancesPerBatch][i % instancesPerBatch] = matrix;
 			colors[i / instancesPerBatch][i % instancesPerBatch] = orbiter.color;
-			Unity.Mathematics.math.RigidTransform().
+			//Unity.Mathematics.math.RigidTransform().
 		}
 
 		using (renderMarker.Auto())
