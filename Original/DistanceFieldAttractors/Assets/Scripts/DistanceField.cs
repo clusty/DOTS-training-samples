@@ -9,9 +9,9 @@ public class DistanceField:MonoBehaviour {
 	float switchTimer = 0f;
 	int modelCount;
 
-	static DistanceField instance;
+	public static DistanceField instance;
 
-	static float time;
+	public static float timeStatic;
 
 	// Smooth-Minimum, from Media Molecule's "Dreams"
 	static float SmoothMin(float a, float b, float radius) {
@@ -24,10 +24,10 @@ public class DistanceField:MonoBehaviour {
 	}
 
 	// what's the shortest distance from a given point to the isosurface?
-	public static float GetDistance(float x, float y, float z, out Vector3 normal) {
+	public static float GetDistance(DistanceFieldModel model,  float time,float x, float y, float z, out Vector3 normal) {
 		float distance = float.MaxValue;
 		normal = Vector3.zero;
-		if (instance.model == DistanceFieldModel.Metaballs) {
+		if (model == DistanceFieldModel.Metaballs) {
 			for (int i = 0; i < 5; i++) {
 				float orbitRadius = i * .5f + 2f;
 				float angle1 = time * 4f * (1f + i * .1f);
@@ -43,7 +43,7 @@ public class DistanceField:MonoBehaviour {
 					distance = newDist;
 				}
 			}
-		} else if (instance.model == DistanceFieldModel.SpinMixer) {
+		} else if (model == DistanceFieldModel.SpinMixer) {
 			for (int i = 0; i < 6; i++) {
 				float orbitRadius = (i / 2 + 2) * 2;
 				float angle = time * 20f * (1f + i * .1f);
@@ -57,7 +57,7 @@ public class DistanceField:MonoBehaviour {
 					distance = newDist;
 				}
 			}
-		} else if (instance.model == DistanceFieldModel.SpherePlane) {
+		} else if (model == DistanceFieldModel.SpherePlane) {
 			float sphereDist = Sphere(x,y,z,5f);
 			Vector3 sphereNormal = new Vector3(x,y,z).normalized;
 
@@ -67,7 +67,7 @@ public class DistanceField:MonoBehaviour {
 			float t = Mathf.Sin(time * 8f) * .4f + .4f;
 			distance = Mathf.Lerp(sphereDist,planeDist,t);
 			normal = Vector3.Lerp(sphereNormal,planeNormal,t);
-		} else if (instance.model==DistanceFieldModel.SphereField) {
+		} else if (model==DistanceFieldModel.SphereField) {
 			float spacing = 5f + Mathf.Sin(time*5f) * 2f;
 			x += spacing * .5f;
 			y += spacing * .5f;
@@ -80,7 +80,7 @@ public class DistanceField:MonoBehaviour {
 			z -= spacing * .5f;
 			distance = Sphere(x,y,z,5f);
 			normal = new Vector3(x,y,z);
-		} else if (instance.model==DistanceFieldModel.FigureEight) {
+		} else if (model==DistanceFieldModel.FigureEight) {
 			float ringRadius = 4f;
 			float flipper = 1f;
 			if (z<0f) {
@@ -94,7 +94,7 @@ public class DistanceField:MonoBehaviour {
 			float wave = Mathf.Cos(angle*flipper*3f) * .5f + .5f;
 			wave *= wave*.5f;
 			distance = Mathf.Sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) - (.5f + wave);
-		} else if (instance.model==DistanceFieldModel.PerlinNoise) {
+		} else if (model==DistanceFieldModel.PerlinNoise) {
 			float perlin = Mathf.PerlinNoise(x*.2f,z*.2f);
 			distance = y - perlin*6f;
 			normal = Vector3.up;
@@ -119,7 +119,7 @@ public class DistanceField:MonoBehaviour {
 	}
 
 	private void FixedUpdate() {
-		time = Time.time*.1f;
+		timeStatic = Time.time*.1f;
 	}
 
 	private void Update() {
@@ -139,7 +139,7 @@ public class DistanceField:MonoBehaviour {
 				float x = Random.Range(-10f,10f);
 				float y = Random.Range(-10f,10f);
 				float z = Random.Range(-10f,10f);
-				float dist = GetDistance(x,y,z,out normal);
+				float dist = GetDistance(instance.model, timeStatic,x,y,z,out normal);
 				if (dist < 0f) {
 					Debug.DrawRay(new Vector3(x,y,z),Vector3.up * .1f,Color.red,1f);
 				}

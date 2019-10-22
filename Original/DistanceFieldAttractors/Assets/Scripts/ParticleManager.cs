@@ -4,10 +4,17 @@ using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Profiling;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
+
 public class ParticleManager : MonoBehaviour {
+	
+	ProfilerMarker dataMarker = new ProfilerMarker("DataPrepare");
+	ProfilerMarker renderMarker = new ProfilerMarker("Rendering");
+
+	private int ColorID = Shader.PropertyToID("_Color");
 	public float attraction;
 	public float speedStretch;
 	public float jitter;
@@ -30,7 +37,7 @@ public class ParticleManager : MonoBehaviour {
 
 	void OnEnable () {
 		finalBatchCount = 0;
-		orbiters = new NativeArray<Orbiter>(4000,Allocator.Persistent);
+		orbiters = new NativeArray<Orbiter>(40000,Allocator.Persistent);
 		matrices = new Matrix4x4[orbiters.Length/instancesPerBatch+1][];
 		matrices[0] = new Matrix4x4[instancesPerBatch];
 		colors = new Vector4[matrices.Length][];
@@ -58,7 +65,8 @@ public class ParticleManager : MonoBehaviour {
 	{
 		orbiters.Dispose();
 	}
-
+	
+	[BurstCompile]
 	struct OrbiterUpdateJob : IJobParallelFor
 	{
 		public NativeArray<Orbiter> orbiters;
@@ -66,13 +74,16 @@ public class ParticleManager : MonoBehaviour {
 		public Color surfaceColor, exteriorColor, interiorColor;
 		public float exteriorColorDist, interiorColorDist, colorStiffness;
 		public float Dt;
+		public float time;
+		public uint frameCount;
+		public DistanceFieldModel model;
 		
 		public void Execute(int index)
-		//public void Execute()
 		{
 			var orbiter = orbiters[index];
 			var r = new Unity.Mathematics.Random();
-			r.InitState((uint)orbiter.position.x+123456789);
+			var seed = (frameCount * 2147483647) ^ (index + 1);
+			r.InitState((uint)seed);
 			var f3 = r.NextFloat3();
 			var insideSphere = new Vector3(f3.x, f3.y, f3.z);
 			var n = insideSphere.magnitude;
@@ -81,7 +92,7 @@ public class ParticleManager : MonoBehaviour {
 				insideSphere /= n;
 			}
 
-			var dist = DistanceField.GetDistance(orbiter.position.x,orbiter.position.y,orbiter.position.z,out var normal);
+			var dist = DistanceField.GetDistance(model, time,orbiter.position.x,orbiter.position.y,orbiter.position.z,out var normal);
 			orbiter.velocity -= Mathf.Clamp(dist,-1f,1f) * attraction * normal.normalized;
 			orbiter.velocity += insideSphere*jitter;
 			orbiter.velocity *= .99f;
@@ -105,66 +116,34 @@ public class ParticleManager : MonoBehaviour {
 			exteriorColor = exteriorColor, interiorColor = interiorColor,
 			exteriorColorDist = exteriorColorDist, interiorColorDist = interiorColorDist,
 			colorStiffness = colorStiffness,
-			Dt = Time.deltaTime			
+			Dt = Time.deltaTime,
+			model = DistanceField.instance.model,
+			time = DistanceField.timeStatic,
+			frameCount = (uint)Time.frameCount
 		};
 
-		var handle = updateJob.Schedule(orbiters.Length, 64);
+		var handle = updateJob.Schedule(orbiters.Length, 1);
 		handle.Complete();
-		//var jobHandles = new JobHandle[orbiters.Length];
-		//var jobs = new OrbiterUpdateJob[orbiters.Length];
-		//for (var i = 0; i < orbiters.Length; i++)
-		//{
-		/*jobs[i] = new OrbiterUpdateJob
-		{
-			orbiter = orbiters[i], attraction = attraction, jitter = jitter, surfaceColor = surfaceColor,
-			exteriorColor = exteriorColor, interiorColor = interiorColor,
-			exteriorColorDist = exteriorColorDist, interiorColorDist = interiorColorDist,
-			colorStiffness = colorStiffness,
-			Dt = Time.deltaTime			};
-		jobHandles[i] = jobs[i].Run();
-	}
-
-	for (var i = 0; i < orbiters.Length; i++)
-	{
-		jobHandles[i].Complete();
-		orbiters[i] = jobs[i].orbiter;
-	}*/
-
-
-		/*for (int i=0;i<orbiters.Length;i++) {
-			Orbiter orbiter = orbiters[i];
-			Vector3 normal;
-			float dist = DistanceField.GetDistance(orbiter.position.x,orbiter.position.y,orbiter.position.z,out normal);
-			orbiter.velocity -= normal.normalized * attraction * Mathf.Clamp(dist,-1f,1f);
-			orbiter.velocity += Random.insideUnitSphere*jitter;
-			orbiter.velocity *= .99f;
-			orbiter.position += orbiter.velocity;
-			Color targetColor;
-			if (dist>0f) {
-				targetColor = Color.Lerp(surfaceColor,exteriorColor,dist/exteriorColorDist);
-			} else {
-				targetColor = Color.Lerp(surfaceColor,interiorColor,-dist / interiorColorDist);
-			}
-			orbiter.color = Color.Lerp(orbiter.color,targetColor,Time.deltaTime * colorStiffness);
-			orbiters[i] = orbiter;
-		}*/
 	}
 
 	private void Update() {
+		using (dataMarker.Auto())
 		for (int i=0;i<orbiters.Length;i++) {
 			Orbiter orbiter = orbiters[i];
 			Vector3 scale = new Vector3(.1f,.01f,Mathf.Max(.1f,orbiter.velocity.magnitude * speedStretch));
 			Matrix4x4 matrix = Matrix4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
 			matrices[i / instancesPerBatch][i % instancesPerBatch] = matrix;
 			colors[i / instancesPerBatch][i % instancesPerBatch] = orbiter.color;
+			Unity.Mathematics.math.RigidTransform().
 		}
 
+		using (renderMarker.Auto())
 		for (int i=0;i<matrices.Length;i++) {
 			int count = instancesPerBatch;
 			if (i==matrices.Length-1) {
 				count = finalBatchCount;
 			}
-			matProps[i].SetVectorArray("_Color",colors[i]);
+			matProps[i].SetVectorArray(ColorID,colors[i]);
 			Graphics.DrawMeshInstanced(particleMesh,0,particleMaterial,matrices[i],count,matProps[i]);
 		}
 	}
