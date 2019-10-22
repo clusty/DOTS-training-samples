@@ -40,6 +40,7 @@ public class ParticleManager : MonoBehaviour {
 	private Matrix4x4[] matricesM = new Matrix4x4[instancesPerBatch];
 	private Vector4[] colorsM = new Vector4[instancesPerBatch];
 	private MaterialPropertyBlock matProps;
+	private JobHandle updateHandle;
 	
 	void OnEnable () {
 		finalBatchCount = 0;
@@ -119,9 +120,8 @@ public class ParticleManager : MonoBehaviour {
 				time = DistanceField.timeStatic,
 				frameCount = (uint) Time.frameCount
 			};
-
-			var handle = updateJob.Schedule(orbiters.Length, 1);
-			handle.Complete();
+			
+			updateHandle = updateJob.Schedule(orbiters.Length, 1,updateHandle); // Depend on previous iteration
 		}
 	}
 
@@ -152,7 +152,7 @@ public class ParticleManager : MonoBehaviour {
 				speedStretch = speedStretch
 			};
 
-			var handle = prepareData.Schedule(orbiters.Length, 1);
+			var handle = prepareData.Schedule(orbiters.Length, 1,updateHandle);
 			handle.Complete();
 		}
 		
