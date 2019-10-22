@@ -248,7 +248,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
-  particleCount: 2
+  material: {fileID: 2100000, guid: 340aaa5e0edec3b44a5eb1e4387e2547, type: 2}
+  particleCount: 500
 --- !u!4 &290827878
 Transform:
   m_ObjectHideFlags: 0
