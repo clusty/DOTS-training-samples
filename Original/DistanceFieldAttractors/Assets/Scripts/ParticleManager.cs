@@ -136,7 +136,7 @@ public class ParticleManager : MonoBehaviour {
 		{
 			var orbiter = orbiters[index];
 			var scale = new float3(.1f,.01f,math.max(.1f,math.length(orbiter.velocity) * speedStretch));
-			matrices[index] = float4x4.TRS(orbiter.position,Quaternion.LookRotation(orbiter.velocity),scale);
+			matrices[index] = float4x4.TRS(orbiter.position,quaternion.LookRotation(orbiter.velocity, new float3(0,1,0)),scale);
 			colors[index] = orbiter.color;
 		}
 	}

@@ -1,4 +1,5 @@
-﻿using Unity.Burst;
+﻿using ECS;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -21,17 +22,22 @@ public struct OrbiterData : IComponentData
     }
 }
 
+
+
 // ReSharper disable once InconsistentNaming
 public class DistanceFieldSystem_IJobForEach : JobComponentSystem
 {
     private EntityQuery _orbitersQuery;
+    private EntityQuery _settingsQuery;
     protected override void OnCreate()
     {
         _orbitersQuery = GetEntityQuery(ComponentType.ReadWrite<OrbiterData>(), ComponentType.ReadWrite<LocalToWorld>());
+        _settingsQuery = GetEntityQuery(ComponentType.ReadOnly<OrbiterSimmulationParams>());
     }
 
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
+        var settings = _settingsQuery.GetSingleton<OrbiterSimmulationParams>();
         var job = new OrbiterUpdateJob
         {
             Dt = Time.deltaTime * 0.1f,
@@ -40,20 +46,21 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
             frameCount = (uint)Time.frameCount,
             orbiterType = GetArchetypeChunkComponentType<OrbiterData>(),
             localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(),
-            jitter = .1f,
-            attraction = .5f,
-            surfaceColor = new float4(1, 0, 0, 1),
-            exteriorColor = new float4(1, 1, 0, 1),
-            interiorColor = new float4(1, 0, 1, 1),
-            exteriorColorDist = .1f,
-            interiorColorDist = .2f,
-            colorStiffness = 1,
+            jitter = settings.jitter,
+            attraction = settings.attraction,
+            surfaceColor = settings.surfaceColor,
+            exteriorColor = settings.exteriorColor,
+            interiorColor = settings.interiorColor,
+            exteriorColorDist = settings.exteriorColorDist,
+            interiorColorDist= settings.interiorColorDist,
+            colorStiffness = settings.colorStiffness,
+            speedStretch = settings.speedStretch
         };
-
+        
         return job.Schedule(_orbitersQuery, inputDeps);
     }
 
-    [BurstCompile]
+   [BurstCompile]
     struct OrbiterUpdateJob : IJobChunk
     {
         public ArchetypeChunkComponentType<OrbiterData> orbiterType;
@@ -61,6 +68,7 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
         public float attraction, jitter;
         public float4 surfaceColor, exteriorColor, interiorColor;
         public float exteriorColorDist, interiorColorDist, colorStiffness;
+        public float speedStretch;
         public float Dt;
         public float time;
         public uint frameCount;
@@ -97,7 +105,10 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
                 orbiters[index] = orbiter;
 
                 var localToWorld = localToWorlds[index];
-                localToWorld.Value = float4x4.Translate(orbiter.position);
+
+                var scale = new float3(.1f, .01f, math.max(.1f, math.length(orbiter.velocity) * speedStretch));
+
+                localToWorld.Value =  float4x4.TRS(orbiter.position,quaternion.LookRotation(orbiter.velocity, new float3(0,1,0)),scale);//float4x4.Translate(orbiter.position);
                 localToWorlds[index] = localToWorld;
             }
         }
