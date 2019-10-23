@@ -41,7 +41,7 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
         var job = new OrbiterUpdateJob
         {
             Dt = Time.deltaTime * 0.1f,
-            model = DistanceFieldModel.Metaballs,
+            model = settings.model,
             time = Time.time * 0.1f,
             frameCount = (uint)Time.frameCount,
             orbiterType = GetArchetypeChunkComponentType<OrbiterData>(),

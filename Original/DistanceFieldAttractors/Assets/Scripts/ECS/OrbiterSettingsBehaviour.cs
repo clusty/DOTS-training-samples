@@ -1,6 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace ECS
 {
@@ -16,6 +17,9 @@ namespace ECS
         public float exteriorColorDist = 5f;
         public float interiorColorDist = 1.5f;
         public float colorStiffness = 4;
+        private DistanceFieldModel model;
+        private float switchTimer = 0;
+        private int modelCount;
 
         public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
         {
@@ -35,25 +39,46 @@ namespace ECS
             dstManager.AddComponentData(e, gravityConfigData);
         }
 
+        private void Start()
+        {
+            modelCount = System.Enum.GetValues(typeof(DistanceFieldModel)).Length;
+        }
+
 
         void Update()
         {
-            World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams)).SetSingleton(
-                new OrbiterSimmulationParams
-                {
-                    attraction = attraction,
-                    speedStretch = speedStretch,
-                    jitter = jitter,
-                    surfaceColor = new float4(surfaceColor.r, surfaceColor.g, surfaceColor.b, surfaceColor.a),
-                    interiorColor = new float4(interiorColor.r, interiorColor.g, interiorColor.b, interiorColor.a),
-                    exteriorColor = new float4(exteriorColor.r, exteriorColor.g, exteriorColor.b, exteriorColor.a),
-                    exteriorColorDist = exteriorColorDist,
-                    interiorColorDist = interiorColorDist,
-                    colorStiffness = colorStiffness
-                });
-        }
-    }
 
+            switchTimer += Time.deltaTime * .1f;
+            if (switchTimer > 1f)
+            {
+                switchTimer -= 1f;
+                int newModel = Random.Range(0, modelCount - 1);
+                if (newModel >= (int) model)
+                {
+                    newModel++;
+                }
+
+                model = (DistanceFieldModel) newModel;
+
+                World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams)).SetSingleton(
+                    new OrbiterSimmulationParams
+                    {
+                        attraction = attraction,
+                        speedStretch = speedStretch,
+                        jitter = jitter,
+                        surfaceColor = new float4(surfaceColor.r, surfaceColor.g, surfaceColor.b, surfaceColor.a),
+                        interiorColor = new float4(interiorColor.r, interiorColor.g, interiorColor.b, interiorColor.a),
+                        exteriorColor = new float4(exteriorColor.r, exteriorColor.g, exteriorColor.b, exteriorColor.a),
+                        exteriorColorDist = exteriorColorDist,
+                        interiorColorDist = interiorColorDist,
+                        colorStiffness = colorStiffness,
+                        model = model
+                    });
+            }
+        }
+
+    }
+    
     public struct OrbiterSimmulationParams : IComponentData
     {
         public float attraction;
@@ -65,6 +90,6 @@ namespace ECS
         public float exteriorColorDist;
         public float interiorColorDist;
         public float colorStiffness;
-        // Model
+        public DistanceFieldModel model;
     }
 }
