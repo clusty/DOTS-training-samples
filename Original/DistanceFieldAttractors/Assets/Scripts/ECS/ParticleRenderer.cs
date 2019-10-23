@@ -37,54 +37,30 @@ namespace ECS
         {
 	        using (renderMarker.Auto())
 	        {
-		        var chunkArray = query.CreateArchetypeChunkArray(Allocator.TempJob);
-		        var localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>();
-		        var colorType = GetArchetypeChunkComponentType<ColorData>();
+		        var localToWorlds = query.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
+		        var colors = query.ToComponentDataArray<ColorData>(Allocator.TempJob);
 
-		        int dstIdx = 0;
-		        for (int i = 0; i < chunkArray.Length; ++i)
+		        for (var i = 0; i < localToWorlds.Length; i += instancesPerBatch)
 		        {
-			        var chunk = chunkArray[i];
-			        var localToWorlds = chunk.GetNativeArray(localToWorldType);
-			        var colors = chunk.GetNativeArray(colorType);
-
-			        int srcIdx = 0;
-			        int j = 0;
-			        do
+			        var count = Math.Min(instancesPerBatch, localToWorlds.Length - i);
+			        var src = localToWorlds.GetUnsafeReadOnlyPtr();
+			        fixed (void* dst = matricesM)
 			        {
-				        while (srcIdx < localToWorlds.Length && dstIdx < instancesPerBatch)
-				        {
-					        //   localToWorlds.Length
-					        //   instancesPerBatch - idx
-					        int count = Mathf.Min(localToWorlds.Length - srcIdx, instancesPerBatch - dstIdx);
-
-					        void* src = (Matrix4x4*) localToWorlds.GetUnsafeReadOnlyPtr() + srcIdx;
-					        fixed (Matrix4x4* dst = matricesM)
-					        {
-						        UnsafeUtility.MemCpy(dst + dstIdx, src, count * UnsafeUtility.SizeOf<Matrix4x4>());
-					        }
-
-					        src = (float4*) colors.GetUnsafeReadOnlyPtr() + srcIdx;
-					        fixed (Vector4* dst = colorsM)
-					        {
-						        UnsafeUtility.MemCpy(dst + dstIdx, src, count * UnsafeUtility.SizeOf<Vector4>());
-					        }
-
-					        dstIdx += count;
-					        srcIdx += count;
-				        }
-
-				        if (i == chunkArray.Length - 1 || dstIdx == instancesPerBatch)
-				        {
-					        matProps.SetVectorArray(ColorID, colorsM);
-					        Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM, dstIdx, matProps);
-					        dstIdx = 0;
-				        }
-
-			        } while (srcIdx < localToWorlds.Length);
+				        UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Matrix4x4>());
+			        }
+					
+			        src = colors.GetUnsafeReadOnlyPtr();
+			        fixed (void* dst = colorsM)
+			        {
+				        UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Color>());
+			        }
+					
+			        matProps.SetVectorArray(ColorID, colorsM);
+			        Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM, count, matProps);
 		        }
-
-		        chunkArray.Dispose();
+		        
+		        localToWorlds.Dispose();
+		        colors.Dispose();
 	        }
         }
     }

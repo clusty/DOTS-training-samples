@@ -24,6 +24,10 @@ public class DistanceField:MonoBehaviour {
 	static float Sphere(float x, float y, float z,float radius) {
 		return math.sqrt(x * x + y * y + z * z) - radius;
 	}
+	
+	static float Sphere(float3 p,float radius) {
+		return math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - radius;
+	}
 
 	// what's the shortest distance from a given point to the isosurface?
 	public static float GetDistance(DistanceFieldModel model,  float time,float x, float y, float z, out float3 normal) {
@@ -31,17 +35,14 @@ public class DistanceField:MonoBehaviour {
 		normal = float3.zero;
 		if (model == DistanceFieldModel.Metaballs) {
 			for (int i = 0; i < 5; i++) {
-				float orbitRadius = i * .5f + 2f;
-				float angle1 = time * 4f * (1f + i * .1f);
-				float angle2 = time * 4f * (1.2f + i * .117f);
-				float angle3 = time * 4f * (1.3f + i * .1618f);
-				float cx = math.cos(angle1) * orbitRadius;
-				float cy = math.sin(angle2) * orbitRadius;
-				float cz = math.sin(angle3) * orbitRadius;
-
-				float newDist = SmoothMin(distance,Sphere(x - cx,y - cy,z - cz,2f),2f);
+				var orbitRadius = i * .5f + 2f;
+				var angle = new float3(time * 4f * (1f + i * .1f),time * 4f * (1.2f + i * .117f),time * 4f * (1.3f + i * .1618f));
+				var center = math.cos(angle) * orbitRadius;
+				var p = new float3(x,y,z);
+				var dir = p - center;
+				float newDist = SmoothMin(distance,Sphere(dir,2f),2f);
 				if (newDist < distance) {
-					normal = new float3(x - cx,y - cy,z - cz);
+					normal = dir;
 					distance = newDist;
 				}
 			}
