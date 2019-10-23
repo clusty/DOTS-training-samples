@@ -7,19 +7,22 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-
 public struct OrbiterData : IComponentData
 {
     public float3 position;
     public float3 velocity;
-    public float4 color;
+
 
     public OrbiterData(Vector3 pos)
     {
         position = pos;
         velocity = Vector3.zero;
-        color = float4.zero;
     }
+}
+
+public struct ColorData : IComponentData
+{
+    public float4 Value;
 }
 
 
@@ -31,7 +34,8 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
     private EntityQuery _settingsQuery;
     protected override void OnCreate()
     {
-        _orbitersQuery = GetEntityQuery(ComponentType.ReadWrite<OrbiterData>(), ComponentType.ReadWrite<LocalToWorld>());
+        _orbitersQuery = GetEntityQuery(ComponentType.ReadWrite<OrbiterData>(),ComponentType.ReadWrite<ColorData>(), 
+            ComponentType.ReadWrite<LocalToWorld>());
         _settingsQuery = GetEntityQuery(ComponentType.ReadOnly<OrbiterSimmulationParams>());
     }
 
@@ -45,6 +49,7 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
             time = Time.time * 0.1f,
             frameCount = (uint)Time.frameCount,
             orbiterType = GetArchetypeChunkComponentType<OrbiterData>(),
+            colorType = GetArchetypeChunkComponentType<ColorData>(),
             localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(),
             jitter = settings.jitter,
             attraction = settings.attraction,
@@ -64,6 +69,7 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
     struct OrbiterUpdateJob : IJobChunk
     {
         public ArchetypeChunkComponentType<OrbiterData> orbiterType;
+        public ArchetypeChunkComponentType<ColorData> colorType;
         public ArchetypeChunkComponentType<LocalToWorld> localToWorldType;
         public float attraction, jitter;
         public float4 surfaceColor, exteriorColor, interiorColor;
@@ -76,8 +82,9 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
 
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
-            NativeArray<LocalToWorld> localToWorlds = chunk.GetNativeArray(localToWorldType);
-            NativeArray<OrbiterData> orbiters = chunk.GetNativeArray(orbiterType);
+            var localToWorlds = chunk.GetNativeArray(localToWorldType);
+            var orbiters = chunk.GetNativeArray(orbiterType);
+            var colors = chunk.GetNativeArray(colorType);
 
             for (int index = 0; index < chunk.Count; index++)
             {
@@ -101,7 +108,8 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
                 var targetColor = dist > 0f ?
                     math.lerp(surfaceColor, exteriorColor, dist / exteriorColorDist) :
                     math.lerp(surfaceColor, interiorColor, -dist / interiorColorDist);
-                orbiter.color = math.lerp(orbiter.color, targetColor, Dt * colorStiffness);
+                var c = math.lerp(colors[index].Value, targetColor, Dt * colorStiffness);
+                colors[index] = new ColorData {Value = c};
                 orbiters[index] = orbiter;
 
                 var localToWorld = localToWorlds[index];

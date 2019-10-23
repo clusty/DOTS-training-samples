@@ -13,7 +13,7 @@ using UnityEngine.Rendering;
 [Serializable]
 struct Spawner : ISharedComponentData, IEquatable<Spawner>
 {
-    public Mesh mesh;
+    //public Mesh mesh;
     public Material material;
     public int particleCount;
     
@@ -57,10 +57,10 @@ public class OrbiterSpawnerSystem: ComponentSystem
             spawner.particleCount--;
             var e = CommandBuffer.CreateEntity();
 
-            var renderMesh = new RenderMesh();
+            /*var renderMesh = new RenderMesh();
             renderMesh.mesh = spawner.mesh;
             renderMesh.material = spawner.material;
-            CommandBuffer.AddSharedComponent(e, renderMesh);
+            CommandBuffer.AddSharedComponent(e, renderMesh);*/
 
             var localToWorld = new LocalToWorld();
             localToWorld.Value = float4x4.identity;
@@ -76,8 +76,10 @@ public class OrbiterSpawnerSystem: ComponentSystem
                 insideSphere /= n;
             }
 
-            OrbiterData orbiterData = new OrbiterData(insideSphere * 50.0f);
+            var orbiterData = new OrbiterData(insideSphere * 50.0f);
+            var colorData = new ColorData();
             CommandBuffer.AddComponent(e, orbiterData);
+            CommandBuffer.AddComponent(e,colorData);
         }
 
         var entities = spawnerEntityQuery.ToEntityArray(Allocator.TempJob);

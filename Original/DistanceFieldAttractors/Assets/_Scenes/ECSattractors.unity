@@ -156,8 +156,8 @@ Camera:
   m_GameObject: {fileID: 272418721}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -216,6 +216,7 @@ GameObject:
   - component: {fileID: 290827877}
   - component: {fileID: 290827876}
   - component: {fileID: 290827879}
+  - component: {fileID: 290827880}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -286,6 +287,20 @@ MonoBehaviour:
   exteriorColorDist: 5
   interiorColorDist: 1.5
   colorStiffness: 4
+--- !u!114 &290827880
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 290827875}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f185bb336b9b4993810d9f224c0ab161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  particleMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  particleMaterial: {fileID: 2100000, guid: 340aaa5e0edec3b44a5eb1e4387e2547, type: 2}
 --- !u!1 &792225545
 GameObject:
   m_ObjectHideFlags: 0

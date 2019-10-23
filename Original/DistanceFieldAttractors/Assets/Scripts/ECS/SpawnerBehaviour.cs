@@ -18,8 +18,8 @@ public class SpawnerBehaviour : MonoBehaviour, IConvertGameObjectToEntity
     {
         var data = new Spawner
         {
-            mesh = mesh,
-            material = material,
+            //mesh = mesh,
+            //material = material,
             particleCount = particleCount
         };
         
