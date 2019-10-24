@@ -43,16 +43,16 @@ namespace ECS
 		        for (var i = 0; i < localToWorlds.Length; i += instancesPerBatch)
 		        {
 			        var count = Math.Min(instancesPerBatch, localToWorlds.Length - i);
-			        var src = localToWorlds.GetUnsafeReadOnlyPtr();
-			        fixed (void* dst = matricesM)
+			        var srcM = (float4x4*)localToWorlds.GetUnsafeReadOnlyPtr();
+			        fixed (Matrix4x4* dst = matricesM)
 			        {
-				        UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Matrix4x4>());
+				        UnsafeUtility.MemCpy(dst,srcM+i,count * UnsafeUtility.SizeOf<Matrix4x4>());
 			        }
 					
-			        src = colors.GetUnsafeReadOnlyPtr();
+			        var srcC = (float4*)colors.GetUnsafeReadOnlyPtr();
 			        fixed (void* dst = colorsM)
 			        {
-				        UnsafeUtility.MemCpy(dst,src,count * UnsafeUtility.SizeOf<Color>());
+				        UnsafeUtility.MemCpy(dst,srcC+i,count * UnsafeUtility.SizeOf<Color>());
 			        }
 					
 			        matProps.SetVectorArray(ColorID, colorsM);
