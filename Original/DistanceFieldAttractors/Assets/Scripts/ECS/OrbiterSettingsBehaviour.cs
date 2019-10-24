@@ -17,6 +17,7 @@ namespace ECS
         public float exteriorColorDist = 5f;
         public float interiorColorDist = 1.5f;
         public float colorStiffness = 4;
+        public int particleCount  = 50000;
         private DistanceFieldModel model;
         private float switchTimer = 0;
         private int modelCount;
@@ -25,6 +26,7 @@ namespace ECS
         {
             var gravityConfigData = new OrbiterSimmulationParams
             {
+                particleCount = particleCount,
                 attraction = attraction,
                 speedStretch = speedStretch,
                 jitter = jitter,
@@ -59,28 +61,30 @@ namespace ECS
                 }
 
                 model = (DistanceFieldModel) newModel;
-
-                World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams)).SetSingleton(
-                    new OrbiterSimmulationParams
-                    {
-                        attraction = attraction,
-                        speedStretch = speedStretch,
-                        jitter = jitter,
-                        surfaceColor = new float4(surfaceColor.r, surfaceColor.g, surfaceColor.b, surfaceColor.a),
-                        interiorColor = new float4(interiorColor.r, interiorColor.g, interiorColor.b, interiorColor.a),
-                        exteriorColor = new float4(exteriorColor.r, exteriorColor.g, exteriorColor.b, exteriorColor.a),
-                        exteriorColorDist = exteriorColorDist,
-                        interiorColorDist = interiorColorDist,
-                        colorStiffness = colorStiffness,
-                        model = model
-                    });
             }
+            
+            World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams)).SetSingleton(
+                new OrbiterSimmulationParams
+                {
+                    particleCount = particleCount,
+                    attraction = attraction,
+                    speedStretch = speedStretch,
+                    jitter = jitter,
+                    surfaceColor = new float4(surfaceColor.r, surfaceColor.g, surfaceColor.b, surfaceColor.a),
+                    interiorColor = new float4(interiorColor.r, interiorColor.g, interiorColor.b, interiorColor.a),
+                    exteriorColor = new float4(exteriorColor.r, exteriorColor.g, exteriorColor.b, exteriorColor.a),
+                    exteriorColorDist = exteriorColorDist,
+                    interiorColorDist = interiorColorDist,
+                    colorStiffness = colorStiffness,
+                    model = model
+                });
         }
 
     }
     
     public struct OrbiterSimmulationParams : IComponentData
     {
+        public int particleCount;
         public float attraction;
         public float speedStretch;
         public float jitter;

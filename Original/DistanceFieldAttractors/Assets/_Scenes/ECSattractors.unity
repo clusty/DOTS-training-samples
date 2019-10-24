@@ -213,7 +213,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 290827878}
-  - component: {fileID: 290827877}
   - component: {fileID: 290827876}
   - component: {fileID: 290827879}
   - component: {fileID: 290827880}
@@ -237,21 +236,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ConversionMode: 1
---- !u!114 &290827877
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 290827875}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4c87b68257207f40a2f124d215adcd4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
-  material: {fileID: 2100000, guid: 340aaa5e0edec3b44a5eb1e4387e2547, type: 2}
-  particleCount: 50000
 --- !u!4 &290827878
 Transform:
   m_ObjectHideFlags: 0
@@ -287,6 +271,7 @@ MonoBehaviour:
   exteriorColorDist: 5
   interiorColorDist: 1.5
   colorStiffness: 4
+  partiocleCount: 50000
 --- !u!114 &290827880
 MonoBehaviour:
   m_ObjectHideFlags: 0
