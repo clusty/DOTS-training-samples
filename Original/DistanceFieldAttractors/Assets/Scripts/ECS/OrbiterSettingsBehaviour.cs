@@ -21,6 +21,7 @@ namespace ECS
         private DistanceFieldModel model;
         private float switchTimer = 0;
         private int modelCount;
+        private EntityQuery query;
 
         public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
         {
@@ -44,12 +45,11 @@ namespace ECS
         private void Start()
         {
             modelCount = System.Enum.GetValues(typeof(DistanceFieldModel)).Length;
+            query = World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams));
         }
-
-
+        
         void Update()
         {
-
             switchTimer += Time.deltaTime * .1f;
             if (switchTimer > 1f)
             {
@@ -63,7 +63,7 @@ namespace ECS
                 model = (DistanceFieldModel) newModel;
             }
             
-            World.Active.EntityManager.CreateEntityQuery(typeof(OrbiterSimmulationParams)).SetSingleton(
+            query.SetSingleton(
                 new OrbiterSimmulationParams
                 {
                     particleCount = particleCount,
