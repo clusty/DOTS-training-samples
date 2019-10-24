@@ -271,7 +271,7 @@ MonoBehaviour:
   exteriorColorDist: 5
   interiorColorDist: 1.5
   colorStiffness: 4
-  partiocleCount: 50000
+  particleCount: 60000
 --- !u!114 &290827880
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -35,7 +35,7 @@ public class ParticleManager : MonoBehaviour {
 	int finalBatchCount;
 
 	const int instancesPerBatch = 1023;
-	const int particleCount = 50000;
+	const int particleCount = 60000;
 
 	private Matrix4x4[] matricesM = new Matrix4x4[instancesPerBatch];
 	private Vector4[] colorsM = new Vector4[instancesPerBatch];

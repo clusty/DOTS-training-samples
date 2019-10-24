@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -32,8 +33,7 @@ namespace ECS
 		protected override void OnCreate()
 		{
 			RequireSingletonForUpdate<OrbiterSimmulationParams>();
-			//matricesM = new Matrix4x4[instancesPerBatch];
-			//colorsM = new Vector4[instancesPerBatch];
+
 			matProps = new MaterialPropertyBlock();
 			query = World.Active.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<LocalToWorld>(),
 				ComponentType.ReadOnly<ColorData>());
@@ -53,15 +53,21 @@ namespace ECS
 			jobs = new JobHandle[batchCount];
 		}
 
-		unsafe struct MemCpyJob : IJobParallelFor
+		[BurstCompile]
+		unsafe struct MemCpyJob : IJob
 		{
-			public NativeArray<LocalToWorld> srcMatrix;
+			[ReadOnly]public NativeArray<LocalToWorld> srcMatrix;
+			[NativeDisableContainerSafetyRestriction]
 			public NativeArray<IntPtr> dstMatrix;
 
+			[ReadOnly]
 			public NativeArray<ColorData> srcColor;
+			[NativeDisableContainerSafetyRestriction]
 			public NativeArray<IntPtr> dstColor;
 			public int batchSize;
-			public void Execute(int index)
+			public int index;
+
+			public void Execute()
 			{
 				batchSize = index == srcColor.Length / batchSize ? srcColor.Length % batchSize : batchSize;
 
@@ -80,8 +86,6 @@ namespace ECS
 			}
 		}
 
-
-
 		protected override void OnUpdate()
 		{
 			using (renderMarker.Auto())
@@ -91,32 +95,60 @@ namespace ECS
 				var colors = query.ToComponentDataArray<ColorData>(Allocator.TempJob);
 
 				var batchcount = localToWorlds.Length / instancesPerBatch;
+				if (batchcount == 0)
+				{
+					return;
+				}
+				
+				var dstMatrix = new NativeArray<IntPtr>(batchcount, Allocator.TempJob);
+				var dstColor = new NativeArray<IntPtr>(batchcount, Allocator.TempJob); 
 
-				/*using (*/
-				var dstMatrix = new NativeArray<IntPtr>(batchcount, Allocator.TempJob); //)
-				/*using (*/
-				var dstColor = new NativeArray<IntPtr>(batchcount, Allocator.TempJob); //)
-				// {
 				for (var i = 0; i < batchcount; i++)
 				{
-
-						handlesM[i] = GCHandle.Alloc(matricesM[i],GCHandleType.Pinned);
-						handlesC[i] = GCHandle.Alloc(colorsM[i],GCHandleType.Pinned);
-						dstMatrix[i] = handlesM[i].AddrOfPinnedObject();
-						dstColor[i] = handlesC[i].AddrOfPinnedObject();
+					handlesM[i] = GCHandle.Alloc(matricesM[i], GCHandleType.Pinned);
+					handlesC[i] = GCHandle.Alloc(colorsM[i], GCHandleType.Pinned);
+					dstMatrix[i] = handlesM[i].AddrOfPinnedObject();
+					dstColor[i] = handlesC[i].AddrOfPinnedObject();
+				}
+				
+				for (int i = 0; i < batchcount; ++i)
+				{
+					var job = new MemCpyJob
+					{
+						srcColor = colors,
+						dstColor = dstColor,
+						srcMatrix = localToWorlds,
+						dstMatrix = dstMatrix,
+						batchSize = instancesPerBatch,
+						index = i
+					};
+					jobs[i] = job.Schedule();
+				}
+				
+				ulong mask = UInt64.MaxValue >> (64 - batchcount);
+				while (mask != 0)
+				{
+					for (int i = 0; i < batchcount; ++i)
+					{
+						var bit = 1ul << i;
+						if ((mask & bit) != 0 && jobs[i].IsCompleted)
+						{
+							var count = i == batchcount - 1
+								? localToWorlds.Length % instancesPerBatch
+								: instancesPerBatch;
+							matProps.SetVectorArray(ColorID, colorsM[i]);
+							Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM[i], count,
+								matProps);
+							mask &= ~bit;
+						}
+					}
+				}
+				
+				for (int i = 0; i < batchcount; ++i)
+				{
+					jobs[i].Complete();
 				}
 
-				var job = new MemCpyJob
-				{
-					srcColor = colors,
-					dstColor = dstColor,
-					srcMatrix = localToWorlds,
-					dstMatrix = dstMatrix,
-					batchSize = instancesPerBatch
-
-				};
-
-				job.Schedule(batchcount,1).Complete();
 				dstColor.Dispose();
 				dstMatrix.Dispose();
 
@@ -126,20 +158,6 @@ namespace ECS
 					handlesM[i].Free();
 				}
 
-				var remainder = localToWorlds.Length % instancesPerBatch;
-				for (int i = 0; i < batchcount - 1; ++i)
-				{
-					matProps.SetVectorArray(ColorID, colorsM[i]);
-					Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM[i], instancesPerBatch,
-						matProps);
-				}
-
-				if (remainder > 0)
-				{
-					matProps.SetVectorArray(ColorID, colorsM[batchcount - 1]);
-					Graphics.DrawMeshInstanced(particleMesh, 0, particleMaterial, matricesM[batchcount - 1], remainder,
-						matProps);
-				}
 
 				localToWorlds.Dispose();
 				colors.Dispose();
@@ -154,7 +172,7 @@ namespace ECS
         private RenderSystem render;
         private void Start()
         {
-	        render = World.Active.GetOrCreateSystem<RenderSystem>(); //new RenderSystem {particleMesh = particleMesh, particleMaterial = particleMaterial};
+	        render = World.Active.GetOrCreateSystem<RenderSystem>();
 	        render.particleMaterial = particleMaterial;
 	        render.particleMesh = particleMesh;
         }
