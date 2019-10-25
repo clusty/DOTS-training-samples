@@ -92,14 +92,15 @@ namespace ECS
 			{
 				
 				var localToWorlds = query.ToComponentDataArray<LocalToWorld>(Allocator.TempJob);
-				var colors = query.ToComponentDataArray<ColorData>(Allocator.TempJob);
-
+				
 				var batchcount = localToWorlds.Length / instancesPerBatch;
 				if (batchcount == 0)
 				{
+					localToWorlds.Dispose();
 					return;
 				}
 
+				var colors = query.ToComponentDataArray<ColorData>(Allocator.TempJob);
 				if (batchcount > matricesM.Length)
 				{
 					var sizes = localToWorlds.Length / instancesPerBatch + 1;

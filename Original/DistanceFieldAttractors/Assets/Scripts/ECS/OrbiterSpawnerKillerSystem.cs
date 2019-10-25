@@ -40,7 +40,7 @@ public class OrbiterSpawnerKillerSystem: ComponentSystem
             var r = new Unity.Mathematics.Random();
             var seed = (Time.frameCount * 2147483647) ^ (currentParticleCount + 1);
             r.InitState((uint)seed);
-            var insideSphere = r.NextFloat3();
+            var insideSphere = r.NextFloat3(-1,1);
             var n = math.length(insideSphere);
             if (n > 1)
             {

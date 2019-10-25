@@ -97,7 +97,7 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
                 var r = new Unity.Mathematics.Random();
                 var seed = (frameCount * 2147483647) ^ (index + 1);
                 r.InitState((uint)seed);
-                var f3 = r.NextFloat3();
+                var f3 = r.NextFloat3(-1,1);
                 var insideSphere = new float3(f3.x, f3.y, f3.z);
                 var n = math.length(insideSphere);
                 if (n > 1)
