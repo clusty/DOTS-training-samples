@@ -26,9 +26,9 @@ namespace ECS
 		private MaterialPropertyBlock matProps;
 		private int ColorID = Shader.PropertyToID("_Color");
 		EntityQuery query;
-		GCHandle[] handlesC;
-		GCHandle[] handlesM;
-		private JobHandle[] jobs;
+		private GCHandle[] handlesC = new GCHandle[1];
+		GCHandle[] handlesM = new GCHandle[1];
+		private JobHandle[] jobs = new JobHandle[1];
 
 		protected override void OnCreate()
 		{
@@ -99,7 +99,22 @@ namespace ECS
 				{
 					return;
 				}
-				
+
+				if (batchcount > matricesM.Length)
+				{
+					var sizes = localToWorlds.Length / instancesPerBatch + 1;
+					matricesM = new Matrix4x4[sizes][];
+					colorsM = new Vector4[sizes][];
+					for (var i = 0; i < sizes; ++i)
+					{
+						matricesM[i] = new Matrix4x4[instancesPerBatch];
+						colorsM[i] = new Vector4[instancesPerBatch];
+					}
+					handlesC = new GCHandle[sizes];
+					handlesM = new GCHandle[sizes];
+					jobs = new JobHandle[sizes];
+				}
+
 				var dstMatrix = new NativeArray<IntPtr>(batchcount, Allocator.TempJob);
 				var dstColor = new NativeArray<IntPtr>(batchcount, Allocator.TempJob); 
 

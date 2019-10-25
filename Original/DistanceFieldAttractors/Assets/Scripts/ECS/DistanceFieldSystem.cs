@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -30,6 +31,7 @@ public struct ColorData : IComponentData
 // ReSharper disable once InconsistentNaming
 public class DistanceFieldSystem_IJobForEach : JobComponentSystem
 {
+    ProfilerMarker simmulate = new ProfilerMarker("Simmulate Paticles");
     private EntityQuery _orbitersQuery;
     private EntityQuery _settingsQuery;
     protected override void OnCreate()
@@ -41,28 +43,31 @@ public class DistanceFieldSystem_IJobForEach : JobComponentSystem
 
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
-        var settings = _settingsQuery.GetSingleton<OrbiterSimmulationParams>();
-        var job = new OrbiterUpdateJob
+        using (simmulate.Auto())
         {
-            Dt = Time.deltaTime * 0.1f,
-            model = settings.model,
-            time = Time.time * 0.1f,
-            frameCount = (uint)Time.frameCount,
-            orbiterType = GetArchetypeChunkComponentType<OrbiterData>(),
-            colorType = GetArchetypeChunkComponentType<ColorData>(),
-            localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(),
-            jitter = settings.jitter,
-            attraction = settings.attraction,
-            surfaceColor = settings.surfaceColor,
-            exteriorColor = settings.exteriorColor,
-            interiorColor = settings.interiorColor,
-            exteriorColorDist = settings.exteriorColorDist,
-            interiorColorDist= settings.interiorColorDist,
-            colorStiffness = settings.colorStiffness,
-            speedStretch = settings.speedStretch
-        };
-        
-        return job.Schedule(_orbitersQuery, inputDeps);
+            var settings = _settingsQuery.GetSingleton<OrbiterSimmulationParams>();
+            var job = new OrbiterUpdateJob
+            {
+                Dt = Time.deltaTime * 0.1f,
+                model = settings.model,
+                time = Time.time * 0.1f,
+                frameCount = (uint) Time.frameCount,
+                orbiterType = GetArchetypeChunkComponentType<OrbiterData>(),
+                colorType = GetArchetypeChunkComponentType<ColorData>(),
+                localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(),
+                jitter = settings.jitter,
+                attraction = settings.attraction,
+                surfaceColor = settings.surfaceColor,
+                exteriorColor = settings.exteriorColor,
+                interiorColor = settings.interiorColor,
+                exteriorColorDist = settings.exteriorColorDist,
+                interiorColorDist = settings.interiorColorDist,
+                colorStiffness = settings.colorStiffness,
+                speedStretch = settings.speedStretch
+            };
+
+            return job.Schedule(_orbitersQuery, inputDeps);
+        }
     }
 
    [BurstCompile]

@@ -1,11 +1,12 @@
 ﻿using ECS;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
 
-public class OrbiterSpawnerSystem: ComponentSystem
+public class OrbiterSpawnerKillerSystem: ComponentSystem
 {
     private EntityCommandBuffer CommandBuffer;
     private BeginSimulationEntityCommandBufferSystem _barrier;
@@ -50,6 +51,18 @@ public class OrbiterSpawnerSystem: ComponentSystem
             var colorData = new ColorData();
             CommandBuffer.AddComponent(e, orbiterData);
             CommandBuffer.AddComponent(e,colorData);
+        }
+
+        if (currentParticleCount > settings.particleCount)
+        {
+            var entityArray = _particleQuery.ToEntityArray(Allocator.TempJob);
+            var toKill = currentParticleCount - settings.particleCount;
+            for (int i = 0; i < toKill; ++i)
+            {
+                CommandBuffer.DestroyEntity(entityArray[i]);
+            }
+
+            entityArray.Dispose();
         }
     }
 }
